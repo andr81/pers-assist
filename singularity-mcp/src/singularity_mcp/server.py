@@ -8,7 +8,7 @@ import os
 import json
 import asyncio
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -26,6 +26,52 @@ server = Server("singularity-mcp")
 
 # API client (initialized on first use)
 _api: SingularityAPI | None = None
+
+
+def get_local_timezone():
+    """Get the local timezone from the system"""
+    # Get local timezone by getting current time with timezone info
+    local_now = datetime.now().astimezone()
+    return local_now.tzinfo
+
+
+def local_to_utc(dt: datetime) -> datetime:
+    """Convert local datetime to UTC"""
+    if dt.tzinfo is None:
+        # Assume the datetime is in the local timezone
+        local_tz = get_local_timezone()
+        dt = dt.replace(tzinfo=local_tz)
+    return dt.astimezone(timezone.utc)
+
+
+def utc_to_local(dt: datetime) -> datetime:
+    """Convert UTC datetime to local timezone"""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    local_tz = get_local_timezone()
+    return dt.astimezone(local_tz)
+
+
+def get_today_range_utc():
+    """Get today's date range in UTC, adjusted for local timezone"""
+    # Get local timezone
+    local_tz = get_local_timezone()
+
+    # Get "today" in local timezone
+    now_local = datetime.now(local_tz)
+    today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_start_local = today_start_local + timedelta(days=1)
+
+    # Convert to UTC
+    today_start_utc = today_start_local.astimezone(timezone.utc)
+    tomorrow_start_utc = tomorrow_start_local.astimezone(timezone.utc)
+
+    # Log for debugging
+    logger.info(f"Local timezone: {local_tz}")
+    logger.info(f"Local today: {today_start_local.isoformat()} to {tomorrow_start_local.isoformat()}")
+    logger.info(f"UTC range: {today_start_utc.isoformat()} to {tomorrow_start_utc.isoformat()}")
+
+    return today_start_utc, tomorrow_start_utc
 
 
 def get_api() -> SingularityAPI:
@@ -397,11 +443,50 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
     
     # Tasks
     if name == "list_tasks":
+        # Convert date filters to UTC if provided
+        start_date_from = args.get("start_date_from")
+        start_date_to = args.get("start_date_to")
+
+        # If dates are provided, assume they're in local time and convert to UTC
+        if start_date_from:
+            try:
+                # Try to parse ISO format datetime
+                dt_from = datetime.fromisoformat(start_date_from.replace('Z', '+00:00'))
+            except ValueError:
+                # If not ISO format, try basic parsing
+                dt_from = datetime.strptime(start_date_from[:19], "%Y-%m-%dT%H:%M:%S")
+
+            if dt_from.tzinfo is None:
+                # If no timezone info, assume local timezone
+                local_tz = get_local_timezone()
+                dt_from = dt_from.replace(tzinfo=local_tz)
+            # Convert to UTC
+            dt_from_utc = dt_from.astimezone(timezone.utc)
+            start_date_from = dt_from_utc.isoformat()
+            logger.info(f"Converted start_date_from: {args.get('start_date_from')} -> {start_date_from}")
+
+        if start_date_to:
+            try:
+                # Try to parse ISO format datetime
+                dt_to = datetime.fromisoformat(start_date_to.replace('Z', '+00:00'))
+            except ValueError:
+                # If not ISO format, try basic parsing
+                dt_to = datetime.strptime(start_date_to[:19], "%Y-%m-%dT%H:%M:%S")
+
+            if dt_to.tzinfo is None:
+                # If no timezone info, assume local timezone
+                local_tz = get_local_timezone()
+                dt_to = dt_to.replace(tzinfo=local_tz)
+            # Convert to UTC
+            dt_to_utc = dt_to.astimezone(timezone.utc)
+            start_date_to = dt_to_utc.isoformat()
+            logger.info(f"Converted start_date_to: {args.get('start_date_to')} -> {start_date_to}")
+
         return await api.list_tasks(
             project_id=args.get("project_id"),
             include_archived=args.get("include_archived", False),
-            start_date_from=args.get("start_date_from"),
-            start_date_to=args.get("start_date_to"),
+            start_date_from=start_date_from,
+            start_date_to=start_date_to,
             max_count=args.get("max_count", 100),
         )
     
@@ -475,10 +560,14 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
         )
     
     elif name == "mark_habit":
-        from datetime import datetime
         habit_date = args.get("date")
         if not habit_date:
-            habit_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+            # Get current date in local timezone, then convert to UTC
+            local_tz = get_local_timezone()
+            now_local = datetime.now(local_tz)
+            today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            today_start_utc = today_start_local.astimezone(timezone.utc)
+            habit_date = today_start_utc.isoformat()
         progress = 2 if args.get("done", True) else 1
         return await api.mark_habit(
             habit_id=args["habit_id"],
@@ -505,12 +594,16 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
     
     # Utility
     elif name == "get_today_tasks":
-        from datetime import datetime, timedelta
-        # Use full ISO 8601 format with time as required by API
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-        # Use start of next day instead of end of today (matches working curl request)
-        tomorrow_start = (datetime.now() + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-        logger.info(f"Getting tasks for today: {today_start} to {tomorrow_start}")
+        # Get today's date range in UTC, adjusted for local timezone
+        today_start_utc, tomorrow_start_utc = get_today_range_utc()
+
+        # Convert to ISO format for API
+        today_start = today_start_utc.isoformat()
+        tomorrow_start = tomorrow_start_utc.isoformat()
+
+        logger.info(f"Getting tasks for today (using system timezone)")
+        logger.info(f"  UTC range: {today_start} to {tomorrow_start}")
+
         return await api.list_tasks(
             start_date_from=today_start,
             start_date_to=tomorrow_start,
