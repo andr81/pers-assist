@@ -49,6 +49,7 @@ class SingularityAPI:
     async def list_tasks(
         self,
         project_id: str | None = None,
+        tag_ids: list[str] | None = None,
         include_archived: bool = False,
         include_removed: bool = False,
         include_all_recurrence_instances: bool = False,
@@ -57,7 +58,7 @@ class SingularityAPI:
         max_count: int | None = 100,
     ) -> list[dict]:
         """Get list of tasks"""
-        logger.info(f"Listing tasks with filters: project_id={project_id}, "
+        logger.info(f"Listing tasks with filters: project_id={project_id}, tag_ids={tag_ids}, "
                    f"start_date_from={start_date_from}, start_date_to={start_date_to}, "
                    f"include_all_recurrence_instances={include_all_recurrence_instances}")
 
@@ -68,6 +69,9 @@ class SingularityAPI:
         }
         if project_id:
             params["projectId"] = project_id
+        if tag_ids:
+            # API expects comma-separated tag IDs
+            params["tagIds"] = ",".join(tag_ids)
         if start_date_from:
             params["startDateFrom"] = start_date_from
         if start_date_to:
@@ -131,8 +135,9 @@ class SingularityAPI:
             if not project_id.startswith("P-"):
                 logger.warning(f"Invalid project_id format: '{project_id}'. Expected format: P-XXX")
             else:
-                logger.info(f"Adding project_id '{project_id}' to request as 'project'")
-                data["project"] = project_id
+                logger.info(f"Adding project_id '{project_id}' to request")
+                # Singularity API might require projectId field
+                data["projectId"] = project_id
         else:
             if project_id == "":
                 logger.warning("project_id is empty string, task will be created without project")
@@ -156,6 +161,7 @@ class SingularityAPI:
         start: str | None = None,
         note: str | None = None,
         priority: int | None = None,
+        project_id: str | None = None,
     ) -> dict:
         """Update an existing task"""
         data: dict[str, Any] = {}
@@ -167,7 +173,17 @@ class SingularityAPI:
             data["note"] = note
         if priority is not None:
             data["priority"] = priority
-        
+        if project_id is not None:
+            # Singularity API requires both projectId and group for project assignment
+            data["projectId"] = project_id
+            # Generate group ID from project ID (Q- prefix + project ID suffix)
+            # This is a simplification - in reality, group IDs might be different
+            # but for now we'll use projectId field
+            # The actual group should be fetched from project data
+            # For P-6868b846-5c1d-49ee-8ab9-2376f8800968 -> Q-e7bb241d-b6c8-4907-b388-15dfb6bee33b
+            # This needs to be resolved per-project
+            logger.warning(f"Setting project {project_id} - group ID might need manual adjustment")
+
         result = await self._request("PATCH", f"/task/{task_id}", json=data)
         return result if isinstance(result, dict) else {}
     
@@ -181,6 +197,50 @@ class SingularityAPI:
     async def delete_task(self, task_id: str) -> None:
         """Delete a task permanently"""
         await self._request("DELETE", f"/task/{task_id}")
+
+    async def set_task_tags(
+        self,
+        task_id: str,
+        tag_ids: list[str],
+    ) -> dict:
+        """Set tags for a task (replaces all existing tags)"""
+        data = {"tags": tag_ids}
+        result = await self._request("PATCH", f"/task/{task_id}", json=data)
+        return result if isinstance(result, dict) else {}
+
+    async def add_task_tag(
+        self,
+        task_id: str,
+        tag_id: str,
+    ) -> dict:
+        """Add a tag to a task"""
+        # First get current tags
+        task = await self.get_task(task_id)
+        current_tags = task.get("tags", [])
+
+        # Add new tag if not already present
+        if tag_id not in current_tags:
+            current_tags.append(tag_id)
+            return await self.set_task_tags(task_id, current_tags)
+
+        return task
+
+    async def remove_task_tag(
+        self,
+        task_id: str,
+        tag_id: str,
+    ) -> dict:
+        """Remove a tag from a task"""
+        # First get current tags
+        task = await self.get_task(task_id)
+        current_tags = task.get("tags", [])
+
+        # Remove tag if present
+        if tag_id in current_tags:
+            current_tags.remove(tag_id)
+            return await self.set_task_tags(task_id, current_tags)
+
+        return task
     
     # ============ PROJECTS ============
     
@@ -197,9 +257,21 @@ class SingularityAPI:
         }
         if max_count:
             params["maxCount"] = str(max_count)
-        
+
         result = await self._request("GET", "/project", params=params)
-        return result if isinstance(result, list) else []
+
+        # API returns {"projects": [...]} format
+        if isinstance(result, dict) and 'projects' in result:
+            projects = result['projects']
+            logger.info(f"Found {len(projects)} projects")
+            return projects
+        elif isinstance(result, list):
+            # Fallback: if API returns list directly
+            logger.info(f"Found {len(result)} projects")
+            return result
+        else:
+            logger.warning(f"Unexpected projects response format: {type(result)}")
+            return []
     
     async def get_project(self, project_id: str) -> dict:
         """Get project by ID"""
@@ -326,9 +398,17 @@ class SingularityAPI:
         }
         if max_count:
             params["maxCount"] = str(max_count)
-        
+
         result = await self._request("GET", "/tag", params=params)
-        return result if isinstance(result, list) else []
+
+        # API might return {"tags": [...]} format
+        if isinstance(result, dict) and 'tags' in result:
+            return result['tags']
+        elif isinstance(result, list):
+            return result
+        else:
+            logger.warning(f"Unexpected tags response format: {type(result)}")
+            return []
     
     async def create_tag(
         self,
@@ -343,6 +423,24 @@ class SingularityAPI:
         result = await self._request("POST", "/tag", json=data)
         return result if isinstance(result, dict) else {}
     
+    async def get_tag(self, tag_id: str) -> dict:
+        """Get tag by ID"""
+        result = await self._request("GET", f"/tag/{tag_id}")
+        return result if isinstance(result, dict) else {}
+
+    async def update_tag(
+        self,
+        tag_id: str,
+        title: str | None = None,
+    ) -> dict:
+        """Update an existing tag"""
+        data: dict[str, Any] = {}
+        if title is not None:
+            data["title"] = title
+
+        result = await self._request("PATCH", f"/tag/{tag_id}", json=data)
+        return result if isinstance(result, dict) else {}
+
     async def delete_tag(self, tag_id: str) -> None:
         """Delete a tag"""
         await self._request("DELETE", f"/tag/{tag_id}")

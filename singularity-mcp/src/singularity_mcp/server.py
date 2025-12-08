@@ -94,13 +94,18 @@ TOOLS = [
     # Tasks
     Tool(
         name="list_tasks",
-        description="Get list of tasks from SingularityApp. Can filter by project, date range, etc.",
+        description="Get list of tasks from SingularityApp. Can filter by project, tags, date range, etc.",
         inputSchema={
             "type": "object",
             "properties": {
                 "project_id": {
                     "type": "string",
                     "description": "Filter by project ID",
+                },
+                "tag_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Filter by tag IDs (e.g., ['A-123', 'A-456'])",
                 },
                 "start_date_from": {
                     "type": "string",
@@ -198,6 +203,10 @@ TOOLS = [
                     "type": "integer",
                     "description": "New priority: 0=high, 1=normal, 2=low",
                 },
+                "project_id": {
+                    "type": "string",
+                    "description": "New project ID",
+                },
             },
             "required": ["task_id"],
         },
@@ -230,7 +239,62 @@ TOOLS = [
             "required": ["task_id"],
         },
     ),
-    
+    Tool(
+        name="set_task_tags",
+        description="Set tags for a task (replaces all existing tags)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID",
+                },
+                "tag_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of tag IDs to set (e.g., ['A-123', 'A-456'])",
+                },
+            },
+            "required": ["task_id", "tag_ids"],
+        },
+    ),
+    Tool(
+        name="add_task_tag",
+        description="Add a tag to a task",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID",
+                },
+                "tag_id": {
+                    "type": "string",
+                    "description": "Tag ID to add",
+                },
+            },
+            "required": ["task_id", "tag_id"],
+        },
+    ),
+    Tool(
+        name="remove_task_tag",
+        description="Remove a tag from a task",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "Task ID",
+                },
+                "tag_id": {
+                    "type": "string",
+                    "description": "Tag ID to remove",
+                },
+            },
+            "required": ["task_id", "tag_id"],
+        },
+    ),
+
     # Projects
     Tool(
         name="list_projects",
@@ -352,7 +416,7 @@ TOOLS = [
     # Tags
     Tool(
         name="list_tags",
-        description="Get list of all tags",
+        description="Get list of all tags with their details",
         inputSchema={
             "type": "object",
             "properties": {
@@ -362,6 +426,20 @@ TOOLS = [
                     "default": 100,
                 },
             },
+        },
+    ),
+    Tool(
+        name="get_tag",
+        description="Get a specific tag by ID",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "tag_id": {
+                    "type": "string",
+                    "description": "Tag ID (e.g., A-123)",
+                },
+            },
+            "required": ["tag_id"],
         },
     ),
     Tool(
@@ -380,6 +458,38 @@ TOOLS = [
                 },
             },
             "required": ["title"],
+        },
+    ),
+    Tool(
+        name="update_tag",
+        description="Update an existing tag",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "tag_id": {
+                    "type": "string",
+                    "description": "Tag ID to update",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "New tag title",
+                },
+            },
+            "required": ["tag_id"],
+        },
+    ),
+    Tool(
+        name="delete_tag",
+        description="Delete a tag permanently",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "tag_id": {
+                    "type": "string",
+                    "description": "Tag ID to delete",
+                },
+            },
+            "required": ["tag_id"],
         },
     ),
     
@@ -484,6 +594,7 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
 
         return await api.list_tasks(
             project_id=args.get("project_id"),
+            tag_ids=args.get("tag_ids"),
             include_archived=args.get("include_archived", False),
             start_date_from=start_date_from,
             start_date_to=start_date_to,
@@ -521,6 +632,7 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
             start=args.get("start"),
             note=args.get("note"),
             priority=args.get("priority"),
+            project_id=args.get("project_id"),
         )
     
     elif name == "complete_task":
@@ -529,7 +641,25 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
     elif name == "delete_task":
         await api.delete_task(args["task_id"])
         return {"status": "deleted", "task_id": args["task_id"]}
-    
+
+    elif name == "set_task_tags":
+        return await api.set_task_tags(
+            task_id=args["task_id"],
+            tag_ids=args["tag_ids"],
+        )
+
+    elif name == "add_task_tag":
+        return await api.add_task_tag(
+            task_id=args["task_id"],
+            tag_id=args["tag_id"],
+        )
+
+    elif name == "remove_task_tag":
+        return await api.remove_task_tag(
+            task_id=args["task_id"],
+            tag_id=args["tag_id"],
+        )
+
     # Projects
     elif name == "list_projects":
         return await api.list_projects(
@@ -578,12 +708,25 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
     # Tags
     elif name == "list_tags":
         return await api.list_tags(max_count=args.get("max_count", 100))
-    
+
+    elif name == "get_tag":
+        return await api.get_tag(args["tag_id"])
+
     elif name == "create_tag":
         return await api.create_tag(
             title=args["title"],
             parent=args.get("parent"),
         )
+
+    elif name == "update_tag":
+        return await api.update_tag(
+            tag_id=args["tag_id"],
+            title=args.get("title"),
+        )
+
+    elif name == "delete_tag":
+        await api.delete_tag(args["tag_id"])
+        return {"status": "deleted", "tag_id": args["tag_id"]}
     
     # Checklist
     elif name == "add_checklist_item":
