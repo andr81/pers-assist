@@ -505,13 +505,16 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
     
     # Utility
     elif name == "get_today_tasks":
-        from datetime import date
-        # Use date only format (YYYY-MM-DD) as per API documentation
-        today = date.today().isoformat()  # Returns YYYY-MM-DD
-        logger.info(f"Getting tasks for today: {today}")
+        from datetime import datetime, timedelta
+        # Use full ISO 8601 format with time as required by API
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        # Use start of next day instead of end of today (matches working curl request)
+        tomorrow_start = (datetime.now() + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        logger.info(f"Getting tasks for today: {today_start} to {tomorrow_start}")
         return await api.list_tasks(
-            start_date_from=today,
-            start_date_to=today,
+            start_date_from=today_start,
+            start_date_to=tomorrow_start,
+            include_all_recurrence_instances=False,  # Important for recurring tasks
         )
     
     else:

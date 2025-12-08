@@ -51,17 +51,20 @@ class SingularityAPI:
         project_id: str | None = None,
         include_archived: bool = False,
         include_removed: bool = False,
+        include_all_recurrence_instances: bool = False,
         start_date_from: str | None = None,
         start_date_to: str | None = None,
         max_count: int | None = 100,
     ) -> list[dict]:
         """Get list of tasks"""
         logger.info(f"Listing tasks with filters: project_id={project_id}, "
-                   f"start_date_from={start_date_from}, start_date_to={start_date_to}")
+                   f"start_date_from={start_date_from}, start_date_to={start_date_to}, "
+                   f"include_all_recurrence_instances={include_all_recurrence_instances}")
 
         params = {
             "includeArchived": str(include_archived).lower(),
             "includeRemoved": str(include_removed).lower(),
+            "includeAllRecurrenceInstances": str(include_all_recurrence_instances).lower(),
         }
         if project_id:
             params["projectId"] = project_id
@@ -74,8 +77,19 @@ class SingularityAPI:
 
         logger.debug(f"Request params: {params}")
         result = await self._request("GET", "/task", params=params)
-        logger.info(f"Found {len(result) if isinstance(result, list) else 0} tasks")
-        return result if isinstance(result, list) else []
+
+        # API returns {"tasks": [...]} format
+        if isinstance(result, dict) and 'tasks' in result:
+            tasks = result['tasks']
+            logger.info(f"Found {len(tasks)} tasks")
+            return tasks
+        elif isinstance(result, list):
+            # Fallback: if API returns list directly
+            logger.info(f"Found {len(result)} tasks")
+            return result
+        else:
+            logger.warning(f"Unexpected response format: {type(result)}")
+            return []
     
     async def get_task(self, task_id: str) -> dict:
         """Get task by ID"""
