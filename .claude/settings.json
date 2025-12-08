@@ -1,0 +1,10 @@
+{
+  "allowedTools": [
+    "mcp__singularity__*"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(singularity-mcp:*)"
+    ]
+  }
+}
