@@ -9,16 +9,26 @@ import json
 import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Configure logging first
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Load .env file from the project root
+env_path = Path(__file__).resolve().parent.parent.parent.parent / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+    logger.info(f"Loaded .env from {env_path}")
+else:
+    logger.warning(f".env file not found at {env_path}")
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from .api import SingularityAPI
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 
 # Initialize server

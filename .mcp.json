@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "singularity": {
+      "command": "singularity-mcp",
+      "envFile": ".env"
+    }
+  }
+}
