@@ -3,6 +3,14 @@
     "singularity": {
       "command": "singularity-mcp",
       "envFile": ".env"
+    },
+    "google-calendar": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@cocal/google-calendar-mcp"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "auth/google-calendar-key.json"
+      }
     }
   }
 }

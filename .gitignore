@@ -207,6 +207,7 @@ $RECYCLE.BIN/
 .env
 .env.local
 .env.*.local
+/auth
 
 # Секретные ключи
 *.key
