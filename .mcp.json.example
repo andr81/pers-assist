@@ -2,7 +2,9 @@
   "mcpServers": {
     "singularity": {
       "command": "singularity-mcp",
-      "envFile": ".env"
+      "env": {
+        "SINGULARITY_API_TOKEN": "your_singularity_token"
+      }
     },
     "google-calendar": {
       "type": "stdio",
@@ -10,6 +12,13 @@
       "args": ["-y", "@cocal/google-calendar-mcp"],
       "env": {
         "GOOGLE_OAUTH_CREDENTIALS": "auth/google-calendar-key.json"
+      }
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "NOTION_TOKEN": "your_notion_token"
       }
     }
   }
