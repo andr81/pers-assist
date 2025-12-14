@@ -107,6 +107,7 @@ env/
 .claude/settings.local.json
 .claude/*.log
 .claude/tmp/
+.mcp.json
 
 # ==========================================
 # IDE и редакторы
