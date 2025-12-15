@@ -94,7 +94,48 @@ class SingularityAPI:
         else:
             logger.warning(f"Unexpected response format: {type(result)}")
             return []
-    
+
+    async def list_inbox_tasks(
+        self,
+        tag_ids: list[str] | None = None,
+        include_archived: bool = False,
+        start_date_from: str | None = None,
+        start_date_to: str | None = None,
+        max_count: int | None = 100,
+    ) -> list[dict]:
+        """Get list of tasks without a project (Inbox)
+
+        Uses client-side filtering since API doesn't support projectId=null
+
+        Args:
+            tag_ids: Filter by tag IDs
+            include_archived: Include archived tasks
+            start_date_from: Filter from date (ISO 8601)
+            start_date_to: Filter to date (ISO 8601)
+            max_count: Maximum tasks to fetch (applies before filtering)
+
+        Returns:
+            List of tasks without projectId field
+        """
+        logger.info(f"Listing inbox tasks with filters: tag_ids={tag_ids}, "
+                   f"start_date_from={start_date_from}, start_date_to={start_date_to}")
+
+        # Fetch ALL tasks (without project_id filter)
+        all_tasks = await self.list_tasks(
+            project_id=None,
+            tag_ids=tag_ids,
+            include_archived=include_archived,
+            start_date_from=start_date_from,
+            start_date_to=start_date_to,
+            max_count=max_count,
+        )
+
+        # Client-side filtering - keep only tasks WITHOUT projectId
+        inbox_tasks = [task for task in all_tasks if 'projectId' not in task]
+
+        logger.info(f"Found {len(inbox_tasks)} inbox tasks (out of {len(all_tasks)} total)")
+        return inbox_tasks
+
     async def get_task(self, task_id: str) -> dict:
         """Get task by ID"""
         result = await self._request("GET", f"/task/{task_id}")

@@ -304,6 +304,38 @@ TOOLS = [
             "required": ["task_id", "tag_id"],
         },
     ),
+    Tool(
+        name="get_inbox_tasks",
+        description="Get list of tasks without a project (Inbox tasks). Supports filtering by tags, dates, and archived status.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "tag_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Filter by tag IDs (e.g., ['A-123', 'A-456'])",
+                },
+                "start_date_from": {
+                    "type": "string",
+                    "description": "Filter tasks starting from this date (ISO 8601 format, e.g., 2024-01-01T00:00:00)",
+                },
+                "start_date_to": {
+                    "type": "string",
+                    "description": "Filter tasks up to this date (ISO 8601 format, e.g., 2024-01-01T23:59:59)",
+                },
+                "include_archived": {
+                    "type": "boolean",
+                    "description": "Include archived tasks",
+                    "default": False,
+                },
+                "max_count": {
+                    "type": "integer",
+                    "description": "Maximum number of tasks to fetch before filtering",
+                    "default": 100,
+                },
+            },
+        },
+    ),
 
     # Projects
     Tool(
@@ -610,7 +642,46 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
             start_date_to=start_date_to,
             max_count=args.get("max_count", 100),
         )
-    
+
+    elif name == "get_inbox_tasks":
+        # Convert date filters to UTC (same logic as list_tasks)
+        start_date_from = args.get("start_date_from")
+        start_date_to = args.get("start_date_to")
+
+        if start_date_from:
+            try:
+                dt_from = datetime.fromisoformat(start_date_from.replace('Z', '+00:00'))
+            except ValueError:
+                dt_from = datetime.strptime(start_date_from[:19], "%Y-%m-%dT%H:%M:%S")
+
+            if dt_from.tzinfo is None:
+                local_tz = get_local_timezone()
+                dt_from = dt_from.replace(tzinfo=local_tz)
+            dt_from_utc = dt_from.astimezone(timezone.utc)
+            start_date_from = dt_from_utc.isoformat()
+            logger.info(f"Converted start_date_from: {args.get('start_date_from')} -> {start_date_from}")
+
+        if start_date_to:
+            try:
+                dt_to = datetime.fromisoformat(start_date_to.replace('Z', '+00:00'))
+            except ValueError:
+                dt_to = datetime.strptime(start_date_to[:19], "%Y-%m-%dT%H:%M:%S")
+
+            if dt_to.tzinfo is None:
+                local_tz = get_local_timezone()
+                dt_to = dt_to.replace(tzinfo=local_tz)
+            dt_to_utc = dt_to.astimezone(timezone.utc)
+            start_date_to = dt_to_utc.isoformat()
+            logger.info(f"Converted start_date_to: {args.get('start_date_to')} -> {start_date_to}")
+
+        return await api.list_inbox_tasks(
+            tag_ids=args.get("tag_ids"),
+            include_archived=args.get("include_archived", False),
+            start_date_from=start_date_from,
+            start_date_to=start_date_to,
+            max_count=args.get("max_count", 100),
+        )
+
     elif name == "get_task":
         return await api.get_task(args["task_id"])
     
