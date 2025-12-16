@@ -210,6 +210,9 @@ $RECYCLE.BIN/
 .env.*.local
 /auth
 
+# Персональные настройки
+settings.yaml
+
 # Секретные ключи
 *.key
 *.pem

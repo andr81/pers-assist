@@ -1,0 +1,49 @@
+# ==============================================
+# Пример настроек персонального ассистента
+# ==============================================
+# Скопируй этот файл в settings.yaml и заполни своими данными:
+# cp settings.yaml.example settings.yaml
+
+# Общие настройки пользователя
+user:
+  city: "Ваш_город"  # Например: "Минск", "Москва", "Киев"
+  timezone: "Europe/Minsk"  # IANA timezone: "Europe/Moscow", "Europe/Kiev", etc.
+  language: "ru"  # "ru", "en", "uk"
+
+# Источники новостей
+news:
+  sources:
+    - "источник1.by"  # Например: "onliner.by"
+    - "источник2.io"  # Например: "zerkalo.io"
+    - "источник3.by"  # Например: "koko.by"
+  categories:
+    - "политика"
+    - "экономика"
+    - "город"
+
+# Настройки для скилов
+skills:
+  # Скил добавления медицинских записей в Notion
+  add-med-record:
+    # База данных пациентов в Notion
+    patients:
+      - name: "Имя1"  # Например: "Богдана"
+        database_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # ID базы данных Notion
+
+      - name: "Имя2"  # Например: "Андрей"
+        database_id: "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"  # ID базы данных Notion
+
+      - name: "Имя3"  # Например: "Ваня"
+        database_id: "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"  # ID базы данных Notion
+
+# Настройки для команд
+commands:
+  weekly-plan:
+    weeks_ahead: 4  # Сколько недель вперед показывать в календаре
+    news_limit: 20  # Количество новостей в дайджесте
+
+  daily-review:
+    focus_tasks_limit: 3  # Сколько задач в фокусе дня
+
+  evening-review:
+    news_limit: 10  # Количество новостей в вечернем обзоре
