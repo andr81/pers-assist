@@ -110,6 +110,9 @@ curl -s "https://timeapi.io/api/Time/current/zone?timeZone=Europe/Minsk"
 - **Google Calendar** — события, календари, напоминания (google-calendar)
 - **Notion** — заметки, базы данных, медицинские карточки (notion)
 
+### Настройка и переаутентификация
+Подробные инструкции по настройке и переаутентификации MCP серверов: `docs/mcp-setup.md`
+
 ## Доступные команды
 
 - `/daily-review` — ежедневный обзор задач и планов
