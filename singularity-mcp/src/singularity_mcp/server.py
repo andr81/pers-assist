@@ -183,6 +183,10 @@ TOOLS = [
                     "type": "string",
                     "description": "Parent task ID (for creating subtasks)",
                 },
+                "group": {
+                    "type": "string",
+                    "description": "Task group (section) ID. If not provided, will auto-resolve from project task groups.",
+                },
             },
             "required": ["title"],
         },
@@ -216,6 +220,10 @@ TOOLS = [
                 "project_id": {
                     "type": "string",
                     "description": "New project ID",
+                },
+                "group": {
+                    "type": "string",
+                    "description": "Task group (section) ID. If not provided when changing project, will auto-resolve.",
                 },
             },
             "required": ["task_id"],
@@ -393,7 +401,41 @@ TOOLS = [
             "required": ["project_id"],
         },
     ),
-    
+
+    # Task Groups (Sections)
+    Tool(
+        name="list_task_groups",
+        description="Get list of task groups (sections) in projects",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "description": "Filter by project ID",
+                },
+                "max_count": {
+                    "type": "integer",
+                    "description": "Maximum number of groups to return",
+                    "default": 100,
+                },
+            },
+        },
+    ),
+    Tool(
+        name="get_default_task_group",
+        description="Get default task group (section) for a project",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "description": "Project ID",
+                },
+            },
+            "required": ["project_id"],
+        },
+    ),
+
     # Habits
     Tool(
         name="list_habits",
@@ -688,13 +730,14 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
     elif name == "create_task":
         logger.info(f"Executing create_task with args: {args}")
 
-        # Extract and log project_id specifically
+        # Extract and log project_id and group specifically
         project_id = args.get("project_id")
-        logger.info(f"project_id value: '{project_id}' (type: {type(project_id).__name__})")
+        group = args.get("group")
+        logger.info(f"project_id: '{project_id}', group: '{group}'")
 
         # Check if project_id is empty string
         if project_id == "":
-            logger.warning("project_id is empty string, will be treated as None")
+            logger.warning("project_id is empty string, treating as None")
             project_id = None
 
         return await api.create_task(
@@ -704,6 +747,7 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
             priority=args.get("priority", 1),
             project_id=project_id,
             parent=args.get("parent"),
+            group=group,
         )
     
     elif name == "update_task":
@@ -714,6 +758,7 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
             note=args.get("note"),
             priority=args.get("priority"),
             project_id=args.get("project_id"),
+            group=args.get("group"),
         )
     
     elif name == "complete_task":
@@ -758,7 +803,17 @@ async def _execute_tool(api: SingularityAPI, name: str, args: dict):
     elif name == "delete_project":
         await api.delete_project(args["project_id"])
         return {"status": "deleted", "project_id": args["project_id"]}
-    
+
+    # Task Groups
+    elif name == "list_task_groups":
+        return await api.list_task_groups(
+            project_id=args.get("project_id"),
+            max_count=args.get("max_count", 100),
+        )
+
+    elif name == "get_default_task_group":
+        return await api.get_default_task_group(args["project_id"])
+
     # Habits
     elif name == "list_habits":
         return await api.list_habits(max_count=args.get("max_count", 100))

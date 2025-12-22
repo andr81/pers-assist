@@ -21,6 +21,9 @@ class SingularityAPI:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
+        # Cache for project -> group mapping
+        self._group_cache: dict[str, str] = {}
+        logger.info("SingularityAPI initialized")
     
     async def _request(
         self,
@@ -149,6 +152,7 @@ class SingularityAPI:
         priority: int = 1,
         project_id: str | None = None,
         parent: str | None = None,
+        group: str | None = None,
     ) -> dict:
         """Create a new task
 
@@ -159,10 +163,12 @@ class SingularityAPI:
             priority: 0=high, 1=normal, 2=low
             project_id: Project ID to add task to
             parent: Parent task ID for subtasks
+            group: Task group (section) ID. If not provided and project_id is set,
+                   will auto-resolve from project task groups via API
         """
         # Log input parameters
         logger.info(f"Creating task with title='{title}', project_id='{project_id}', "
-                   f"start='{start}', priority={priority}, parent='{parent}'")
+                   f"group='{group}', start='{start}', priority={priority}, parent='{parent}'")
 
         data: dict[str, Any] = {"title": title, "priority": priority}
         if start:
@@ -177,13 +183,30 @@ class SingularityAPI:
                 logger.warning(f"Invalid project_id format: '{project_id}'. Expected format: P-XXX")
             else:
                 logger.info(f"Adding project_id '{project_id}' to request")
-                # Singularity API might require projectId field
                 data["projectId"] = project_id
+
+                # Auto-resolve group if not provided
+                if not group:
+                    logger.info(f"Group not provided, resolving via API for project {project_id}")
+                    group = await self.get_default_task_group(project_id)
+
+                    if group:
+                        logger.info(f"Resolved group from API: {group}")
+                    else:
+                        logger.warning(f"Could not resolve group for project {project_id}")
+
+                # Add group to request if available
+                if group:
+                    if group.startswith("Q-"):
+                        logger.info(f"Adding group '{group}' to request")
+                        data["group"] = group
+                    else:
+                        logger.warning(f"Invalid group format: '{group}' (expected Q-XXX)")
         else:
             if project_id == "":
                 logger.warning("project_id is empty string, task will be created without project")
             else:
-                logger.warning("No project_id provided, task will be created without project")
+                logger.info("No project_id provided, task will be created in Inbox")
 
         if parent:
             data["parent"] = parent
@@ -203,8 +226,21 @@ class SingularityAPI:
         note: str | None = None,
         priority: int | None = None,
         project_id: str | None = None,
+        group: str | None = None,
     ) -> dict:
-        """Update an existing task"""
+        """Update an existing task
+
+        Args:
+            task_id: Task ID to update
+            title: New title
+            start: New start date
+            note: New note
+            priority: New priority
+            project_id: New project ID
+            group: New group ID. If not provided when changing project, will auto-resolve
+        """
+        logger.info(f"Updating task {task_id}: project_id={project_id}, group={group}")
+
         data: dict[str, Any] = {}
         if title is not None:
             data["title"] = title
@@ -214,18 +250,34 @@ class SingularityAPI:
             data["note"] = note
         if priority is not None:
             data["priority"] = priority
+
+        # Handle project change with auto-resolve group
         if project_id is not None:
-            # Singularity API requires both projectId and group for project assignment
             data["projectId"] = project_id
-            # Generate group ID from project ID (Q- prefix + project ID suffix)
-            # This is a simplification - in reality, group IDs might be different
-            # but for now we'll use projectId field
-            # The actual group should be fetched from project data
-            # For P-6868b846-5c1d-49ee-8ab9-2376f8800968 -> Q-e7bb241d-b6c8-4907-b388-15dfb6bee33b
-            # This needs to be resolved per-project
-            logger.warning(f"Setting project {project_id} - group ID might need manual adjustment")
+
+            # Auto-resolve group if not explicitly provided
+            if group is None and project_id:
+                logger.info(f"Group not provided, resolving via API for project {project_id}")
+                group = await self.get_default_task_group(project_id)
+
+                if group:
+                    logger.info(f"Resolved group from API: {group}")
+                else:
+                    logger.warning(f"Could not resolve group for project {project_id}")
+
+            # Add group if available
+            if group:
+                if group.startswith("Q-"):
+                    logger.info(f"Setting group to {group}")
+                    data["group"] = group
+                else:
+                    logger.warning(f"Invalid group format: '{group}'")
+        elif group is not None:
+            # Group change without project change
+            data["group"] = group
 
         result = await self._request("PATCH", f"/task/{task_id}", json=data)
+        logger.info(f"Task {task_id} updated successfully")
         return result if isinstance(result, dict) else {}
     
     async def complete_task(self, task_id: str) -> dict:
@@ -367,7 +419,76 @@ class SingularityAPI:
     async def delete_project(self, project_id: str) -> None:
         """Delete a project permanently"""
         await self._request("DELETE", f"/project/{project_id}")
-    
+
+    # ============ TASK GROUPS (SECTIONS) ============
+
+    async def list_task_groups(
+        self,
+        project_id: str | None = None,
+        max_count: int = 100,
+    ) -> list[dict]:
+        """Get list of task groups (sections) in projects
+
+        Args:
+            project_id: Filter by project ID (parent)
+            max_count: Maximum number of groups to return
+
+        Returns:
+            List of task group objects with 'id', 'title', 'parent' (project ID)
+        """
+        params = {}
+        if max_count:
+            params["maxCount"] = str(max_count)
+        if project_id:
+            params["parent"] = project_id
+
+        result = await self._request("GET", "/task-group", params=params)
+
+        # Handle different response formats
+        if isinstance(result, dict) and 'taskGroups' in result:
+            return result['taskGroups']
+        elif isinstance(result, list):
+            return result
+        else:
+            logger.warning(f"Unexpected task-groups response format: {type(result)}")
+            return []
+
+    async def get_default_task_group(self, project_id: str) -> str | None:
+        """Get default task group ID for a project with caching
+
+        Strategy:
+        1. Check cache first
+        2. If not in cache, request task groups via API
+        3. Return first group (usually default)
+        4. Cache the result
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            Group ID or None if no groups found
+        """
+        # Check cache first
+        if project_id in self._group_cache:
+            cached_group = self._group_cache[project_id]
+            logger.info(f"Using cached group {cached_group} for project {project_id}")
+            return cached_group
+
+        # Request from API
+        logger.info(f"Requesting task groups for project {project_id}")
+        groups = await self.list_task_groups(project_id=project_id)
+
+        if groups:
+            group_id = groups[0].get('id')
+            if group_id:
+                # Cache the result
+                self._group_cache[project_id] = group_id
+                logger.info(f"Cached group {group_id} for project {project_id}")
+                return group_id
+
+        logger.warning(f"No task groups found for project {project_id}")
+        return None
+
     # ============ HABITS ============
     
     async def list_habits(self, max_count: int | None = 100) -> list[dict]:
