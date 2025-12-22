@@ -47,3 +47,10 @@ commands:
 
   evening-review:
     news_limit: 10  # Количество новостей в вечернем обзоре
+
+  ideas-db:
+    websearch_threshold: 3      # Порог для WebSearch (если невыполненных < 3)
+    websearch_results: 3        # Количество вариантов из WebSearch
+    recommendations_limit: 1    # Элементов на категорию при рекомендации
+    auto_metadata: true         # Автозаполнение метаданных для фильмов/книг
+    city: null                  # Город для локальных рекомендаций (default: user.city)
