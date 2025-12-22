@@ -356,6 +356,32 @@ API-patch-block-children:
 }
 ```
 
+**Элемент списка с кликабельной ссылкой:**
+```json
+{
+  "type": "bulleted_list_item",
+  "bulleted_list_item": {
+    "rich_text": [
+      {
+        "type": "text",
+        "text": {"content": "Программа развития 2030: рост ВВП на 15.8%"}
+      },
+      {
+        "type": "text",
+        "text": {"content": " — ", "link": null}
+      },
+      {
+        "type": "text",
+        "text": {
+          "content": "Onliner",
+          "link": {"url": "https://money.onliner.by/2025/12/19/programma-2030"}
+        }
+      }
+    ]
+  }
+}
+```
+
 **Пустая строка (разделитель):**
 ```json
 {
