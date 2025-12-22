@@ -117,12 +117,12 @@ curl -s "https://timeapi.io/api/Time/current/zone?timeZone=Europe/Minsk"
 
 - `/daily-review` — ежедневный обзор задач и планов
 - `/evening-review` — вечерний обзор дня и подготовка к завтра
-- `/weekly-plan` — недельное планирование по методологии Дорофеева
 - `/ideas-db` — управление базой идей и активностей (фильмы, блюда, кафе, книги и др.)
 
 ## Доступные скилы
 
 - `add-med-record` — добавление медицинских записей в Notion (анализы, обследования)
+- `weekly-plan` — интерактивное недельное планирование по методологии Дорофеева
 
 ## Стиль общения
 
@@ -138,3 +138,13 @@ curl -s "https://timeapi.io/api/Time/current/zone?timeZone=Europe/Minsk"
 - Всегда читай `settings.yaml` в начале работы для получения персональных настроек
 - Используй настройки из `settings.yaml` во всех командах и скилах
 - Никогда не выдумывай данные — только реальные источники (API, файлы, веб-поиск)
+
+## Инструменты claude-code агента
+При создании новых инструментов, команд, скиллов или субагентов, не забудьте обновить этот раздел.
+Перед созданием обязательно ознакомиться с документацией и примерами:
+- https://www.aiskills.top/articles/claude-code-skills-vs-slash-commands-vs-sub-agents-complete-guide
+- https://agentskills.io/specification
+- https://github.com/anthropics/skills
+- https://code.claude.com/docs/en/skills#agent-skills
+- https://code.claude.com/docs/en/sub-agents
+- https://code.claude.com/docs/en/slash-commands#custom-slash-commands
