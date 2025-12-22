@@ -101,7 +101,7 @@ class SingularityAPI:
         include_archived: bool = False,
         start_date_from: str | None = None,
         start_date_to: str | None = None,
-        max_count: int | None = 100,
+        max_count: int | None = 1000,
     ) -> list[dict]:
         """Get list of tasks without a project (Inbox)
 
