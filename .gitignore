@@ -210,8 +210,9 @@ $RECYCLE.BIN/
 .env.*.local
 /auth
 
-# Персональные настройки
-settings.yaml
+# Персональные конфигурационные файлы
+config/settings.yaml
+config/medications.yaml
 
 # Артефакты команд (персональные данные)
 artifacts/

@@ -38,7 +38,7 @@ allowed-tools: Read, Bash(curl:*), MCPSearch, mcp__singularity__list_tasks, mcp_
 
 **Шаг 0: Подготовка**
 - Получи текущую дату через `curl -s "https://timeapi.io/api/Time/current/zone?timeZone=Europe/Minsk"`
-- Прочитай `settings.yaml` для получения: город, источники новостей, параметры skill
+- Прочитай `config/settings.yaml` для получения: город, источники новостей, параметры skill
 - Задавай уточняющие вопросы для улучшения отчета
 
 **Шаг 1: Анализ прошлой недели**
@@ -106,12 +106,12 @@ allowed-tools: Read, Bash(curl:*), MCPSearch, mcp__singularity__list_tasks, mcp_
 - Предложи объединить дубликаты задач (спроси у пользователя)
 
 **Шаг 4.4: Прогноз погоды**
-- Город из `settings.yaml` → `user.city`
+- Город из `config/settings.yaml` → `user.city`
 - Получи прогноз через WebSearch
 - Краткое описание по дням
 
 **Шаг 4.5: Новости**
-- Источники из `settings.yaml` → `news.sources`
+- Источники из `config/settings.yaml` → `news.sources`
 - **Требования:**
   - В запросах указывай текущий год и месяц
   - Только новости за последние 7 дней

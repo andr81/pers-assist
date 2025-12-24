@@ -1,0 +1,41 @@
+# ==============================================
+# Пример файла с медицинскими данными
+# ==============================================
+# Скопируй этот файл:
+# cp config/medications.yaml.example config/medications.yaml
+
+# Принимаемые препараты и витамины
+medications:
+  - name: "Витамин D3"                  # Название препарата
+    dosage: "2000 МЕ"                   # Дозировка
+    schedule:
+      frequency: "daily"                # Частота: daily, twice_daily, weekly, etc.
+      time: ["morning"]                 # Время приема
+      duration:
+        start_date: "2025-12-01"        # Дата начала курса
+        end_date: null                  # Дата окончания (null = бессрочно)
+    conditions:
+      timing: "with_meal"               # before_meal, after_meal, with_meal, empty_stomach
+      with: "жирная пища"               # С чем принимать
+      avoid: ["кальций"]                # Что избегать при приеме
+    purpose: "Поддержание уровня витамина D в зимний период"
+    prescribed_by: "самостоятельно"    # Кто назначил
+    notes: "Принимать вместе с K2 и магнием для лучшего усвоения"
+    active: true                        # Активен ли прием
+
+  - name: "Магний цитрат"
+    dosage: "400 мг"
+    schedule:
+      frequency: "daily"
+      time: ["evening"]
+      duration:
+        start_date: "2025-11-15"
+        end_date: null
+    conditions:
+      timing: "after_meal"
+      with: "вода"
+      avoid: ["соль", "сахар", "алкоголь"]
+    purpose: "Для нервной системы и качества сна"
+    prescribed_by: "врач-терапевт"
+    notes: "Избегать формы оксида - плохо усваивается"
+    active: true
