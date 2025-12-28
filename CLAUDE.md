@@ -164,6 +164,48 @@ list_tasks(start_date_from="2025-12-23T00:00:00", start_date_to="2025-12-30T00:0
 list-events(timeMin="2025-12-23T00:00:00", timeMax="2025-12-30T23:59:59")
 ```
 
+### ⚠️ КРИТИЧНО: Получение задач "когда-нибудь" (deferred)
+
+**Задачи "когда-нибудь"** — это задачи с `deferred=true` БЕЗ поля `start`. Они используются для планирования недели (задачи на неделю, но без конкретного дня).
+
+**Проблема:** API `list_tasks` с параметрами `start_date_from`/`start_date_to` фильтрует только по полю `start`. Задачи "когда-нибудь" **НЕ имеют** поля `start`, поэтому **НЕ попадают** в выборку по датам!
+
+**Решение:**
+```bash
+# Прямой запрос к API БЕЗ фильтров по дате
+curl -s -X GET "https://api.singularity-app.com/v2/task?includeRemoved=false&includeArchived=false" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer 34c737d2-5237-438b-97dc-a83ec77db36e" | \
+python3 -c "
+import sys, json
+from collections import defaultdict
+
+response = json.load(sys.stdin)
+tasks = response.get('tasks', [])
+
+# Фильтруем: deferred=true И нет start
+deferred_tasks = [
+    t for t in tasks
+    if t.get('deferred') == True and (t.get('start') is None or t.get('start') == 'null')
+]
+
+# Группируем по проектам
+by_project = defaultdict(list)
+for task in deferred_tasks:
+    project_id = task.get('projectId', 'No Project')
+    by_project[project_id].append({
+        'id': task['id'],
+        'title': task['title'],
+        'priority': task.get('priority', 1)
+    })
+
+print(f'Всего задач \"когда-нибудь\": {len(deferred_tasks)}')
+print(json.dumps(dict(by_project), indent=2, ensure_ascii=False))
+"
+```
+
+**ВАЖНО:** Эти задачи нужно показывать в вечернем/недельном обзоре для планирования недели!
+
 ---
 
 ## Области ответственности
