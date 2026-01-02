@@ -262,6 +262,18 @@ print(json.dumps(dict(by_project), indent=2, ensure_ascii=False))
 - `add-med-record` — добавление медицинских записей в Notion (анализы, обследования)
 - `weekly-plan` — интерактивное недельное планирование по методологии Дорофеева
 
+## Инструменты claude-code агента
+
+При создании новых инструментов, команд, скиллов или субагентов, не забудьте обновить этот раздел.
+Перед созданием обязательно ознакомиться с документацией и примерами:
+
+- https://www.aiskills.top/articles/claude-code-skills-vs-slash-commands-vs-sub-agents-complete-guide
+- https://agentskills.io/specification
+- https://github.com/anthropics/skills
+- https://code.claude.com/docs/en/skills#agent-skills
+- https://code.claude.com/docs/en/sub-agents
+- https://code.claude.com/docs/en/slash-commands#custom-slash-commands
+
 ## Стиль общения
 
 - Язык: русский
